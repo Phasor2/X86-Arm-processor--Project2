@@ -1,0 +1,232 @@
+@Phong Nguyen
+@Project2 
+@ECE 371
+@ Program generate Interrupt to the processor. 
+@if the button is pushed the first time procedure 
+@of this request will light 4 LEDS in sequence, one to the next one for 1 second .
+@Then turn all 4 LEDs off using interrupts from TIMER3 clock.  
+@if the button is pushed again then turn off all 4 LEDS sequence 
+@and waiting to for next interrupts push button.
+@Program modify the Startup_ARMCA8 file to intercept IRQ Interrupt Service Procedure
+@INT_Director
+.text
+.global _start
+.global INT_DIRECTOR
+_start:
+	LDR R13,=STACK1 			@Point to base of STACK for SVC mode
+	ADD R13, R13, #0x1000 		@point to top of the STACK
+	CPS #0x12
+	LDR R13,=STACK2			@Point to base of STACK for IRQ mode
+	ADD R13, R13, #0x1000 		@Point to top of the STACK
+	CPS #0x13				@Back to SVC mode
+@===========================================================================
+@===========================================================================
+@MODULE SETUP using GPIO1 pin 21-24 for output LEDS
+@ Turn on GPIO1 CLCK
+	MOV R0,#0x02			@value to turn on GPIO1_CLK 
+	LDR R1,=0x44E000AC		@Load the address for the CM_PER_GPIO1_CLKCTRL
+	STR R0,[R1]				@ Write value to the register
+@ GPIO1_ClEARDATAOUt for pin 21-24
+	LDR R0,=0x4804C000		@base address for GPIO1 register
+	MOV R1, #0x01E00000		@load value to turn off 21-24 LEDS on GPIO1
+	STR R1,[R0,#0x190]		@Write to GPIO1_CLEARDATAOUT register
+@ GPIO1_OE for pin 21-24
+	ADD R4,R0,#0x0134			@R4 is GPIO1_OE register address
+	MOV R5,#0xFE1FFFFF		@ pin 21-24 for output enable (0 is enable)
+	LDR R6,[R4]				@Load current value from the GPIO1_OE
+	AND R6,R6,R5			@Modify current value with pin 21-24 
+	STR R6,[R4]				@Write back to GPIO_OE register address
+	
+@BUTTON SETUP using GPIO1 pin 30 for input button failling edge detect 
+@also enable its IRQ
+@ Detect falling edge on GPIO1_30
+	LDR R0,=0x4804C000		@base address for GPIO1 register
+	ADD R1,R0,#0x14C			@R1 is is GPIO1_FALLINGDETECT register
+	MOV R2,#0x40000000		@Load value pin GPIO1_30 push button
+	LDR R3,[R1]				@Load current value of GPIO1_FALLINGDETECT register
+	ORR R3,R3,R2			@Modify the pin GPIO_30 push button
+	STR R3, [R1]			@Store GPIO_30 push button for GPIO1_FALLINGDETECT
+@ GPIO1_IRQSTATUS  on pin 30 R2 0x40000000 sending interrupts to POINTPEND1
+	ADD R1,R0,#0x34			@R1 address of GPIO1_IRQSTATUS_SET_0 register
+	STR R2,[R1]				@Store pin 30 for GPIO1_IRQSTATUS_SET_0
+
+@TIMER SETUP using DTIMER3 32.768 KHz clock 
+@also enable its IRQ
+	MOV R2, #0x2			@Value to turn on Timer3
+	LDR R1,=0x44E00084		@Address for CM_PER_TIMER3_CLKCTRL
+	STR R2,[R1]				@Write the value to turn on the TIMER3 clock
+	LDR R1,=0x44E0050C		@Address for Mux CLKSEL_TIMER3_CLK to 32.768 hz
+	STR R2,[R1]				@write the value to the Mux
+@Timer 3 register with count and interrupts generation
+	LDR R1,=0x48042000		@Base address for Timer3 register
+	MOV R2,#0x1				@Value to reset register DMTIMER3
+	STR R2,[R1,#0x10]			@Write value to reset at CFG configuration register
+@Timer3 IRQENABLE_SET	
+	MOV R2,#0x2 			@Value to Enable Overflow Interrupt
+	STR R2,[R1,#0x2C]			@Write value to the IRQ register
+@Load and reload DTIMER3
+	LDR R2,=0xFFFF8000		@Count value 1 Second for the Timer
+	STR R2,[R1,#0x40]			@Timer3 TLDR register (to reload) 
+	STR R2,[R1,#0x3C]			@Timer3 TCRR register (to count)
+	
+@ Initialize INTC Interrupts Controler
+	LDR R1,=0x48200000		@R1 loading base address for interrupts controller
+	MOV R2,#0x2				@Value to reset the INTC_CONFIG register
+	STR R2,[R1,#0x10]			@write value to reset the INTC CONFIG
+	MOV R2,#0x20			@ value to unmask Timer3 pin 5 INTC INT #69
+	STR R2,[R1,#0xC8]			@Write value to INTC_MIR_CLEAR2 register
+	MOV R2,#0x04			@ Value to unmask GPIOINTA , pin 2 INTC INT #98
+	STR R2,[R1,#0xE8]			@Write value to INTC_MIR_CLEAR3 register
+	
+@ Make sure Processor CPSR IRQ enable 
+	MRS R3,CPSR				@ Copy CPSR to R3
+	BIC R3,#0x80			@Clear bit 7
+	MSR CPSR_c, R3			@Write back to CPSR	
+
+@wait for interrupts
+LOOP:	NOP
+		B LOOP	
+@==================================================================================
+@==================================================================================
+INT_DIRECTOR:
+
+@ We check IRQ from the button and Timer
+@ To check the IRQ we check the INTC interrupt controller and also the IRQ STATUS
+@ of both Timer and button ortherwise will call PASS_ON to get NEWIRQA from INTC
+
+	STMFD SP!, {R0-R3,LR}		@Push registers on the stack
+
+@Checking button and signal from INTC 
+CHECK_INTC_BUTTON:
+	LDR R0,=0x482000F8		@Address of INTC_PENDING_IRQ3 check button
+	LDR R2,[R0]				@Load value to check 
+	TST R2,#0x00000004		@pin 2 associate with INTC_MIR_CLEAR3 which was unmask
+	BNE CHECK_GPIO_BUTTON		@Go to check button in GPIO1 module
+CHECK_INTC_TIMER:
+	LDR R1,=0x482000D8		@reading value from INTC_PENDING_2 
+	LDR R2,[R1]				@load value into R2 to test 
+	TST R2,#0x00000020 		@pin 5 associate with INTC_MIR_ClEAR2 which was unmask
+	BNE CHECK_GPIO_TIMER		@Go to check timer in GPIO1 module
+@other wise not our IRQ signal 
+	B PASS_ON	
+		
+@Checking module GPIO1
+CHECK_GPIO_BUTTON:
+	LDR R1,=0x4804C02C		@Check GPIO IRQ STATUS from the module
+	LDR R2,[R1]				@Load value from module	
+	TST R2,#0x40000000		@Testing if GPIO1_30_IRQ register is 1 or 0
+	BNE BUTTON_SVC			@if Z flag is clear Go to button service
+	B PASS_ON				@z flag is set nothing in GPIO1 go to pass on
+@Checking module Timer3	
+CHECK_GPIO_TIMER:	
+LDR R1,=0x48042028		@ Address for IRQSTATUS_TIMER3
+LDR R2,[R1] 			@Load Value to test from the register
+TST R2, #0x02			@ Test if bit 1 is 0 or 1
+BNE TIMER_SVC			@if z flag is clear Go to Timer service
+B PASS_ON				@if z Flag is set go to Pass on 
+@==================================================================================
+@This section is where the work is taking place from according to the info above
+@But first remember to turn off interrupt request for the register
+
+BUTTON_SVC:
+@turn off IRQ request for GPIO1
+	LDR R1,=0x4804C02C		@GPIO1_IRQSTATUS_0 address
+	MOV R2,#0x40000000		@turn off GPIO1_IRQSTATUS at pin 30 by writing there 1
+	STR R2,[R1]				@Writing value to Turn IRQ off GPIO1_IRQ_RAW_0
+@check if GPIO1_DATAOUT has LEDs is lit
+	LDR R1,=0x4804C13C		@GPIO1 0x4804C000 with offset 13C dataout
+	@LDR R2,[R1]			@Load value from GPIO_DATAOUT to check
+	@TST R2,#0x01E00000		@ test pin 21-24 on GPIO1
+@TESTING TIMER RIGHT HERE
+	LDR R0,=0x48042038		@Address for Timer3 TCLR
+	LDR R2,[R0]				@0x3 start and reload timer
+	TST R2,#0x03			@check if timer is running and auto reload 
+	BEQ LED_ON				@if z flag is clear (no led is lit) go LED_ON
+	B LED_OFF				@if z flag is set (at least 1 led is lit) go LED_OFF
+
+
+@==========================================================================================
+@LED part for BUTTON
+@turn on LED and start auto load the timer3 	
+LED_ON:
+	LDR R1,=0x4804C194		@Load address of GPIO1_SETDATAOUT register
+	MOV R2,#0x00200000		@Value to turn on LED0 for first sequence
+	STR R2,[R1]				@Write value to turn on the LED0
+@turn on TIMER
+	MOV R2,#0x03			@Load value to auto reload Timer and start
+	LDR R0,=0x48042038		@Address for Timer3 TCLR
+	STR R2,[R0]				@Store auto reload in Timer3 controler
+	B PASS_ON				@ go to PASS_ON
+
+@turn off LEDs and Stop the timer3	
+LED_OFF:
+	LDR R1,=0x4804C190		@Base address for GPIO1_CLEARDATAOUT register
+	MOV R2,#0x01E00000		@Value to turn off pin 21-24
+	STR R2,[R1]				@Write to GPIO1_CLEARDATAOUT register
+@turn off TIMER	
+LDR R0,=0x48042038			@Address for Timer3 TCLR
+	MOV R2,#0x00 			@value to turn off the timer
+	STR R2,[R0]				@Write to timer register TCLR
+	B PASS_ON				@go to PASS_ON
+@==========================================================================================
+@==========================================================================================
+@LED part for TIMER3
+TIMER_SVC:
+@turn off IRQ request for TIMER3
+	LDR R0,=0x48042028		@Load IRQSTATUS_TIMER3 register
+	MOV R2,#0x02			@value to reset Timer 3 Overflow IRQ request
+	STR R2,[R0]				@Write value to turn off IRQ signal
+@TOGGLE LED 
+	LDR R1,=0x4804C000		@Base address of GPIO1
+	ADD R3,R1,#0x190			@R3 is address to CLEARDATAOUT of GPIO1
+	ADD R4,R1,#0x194			@R4 is address to SETDATAOUT of GPIO1
+	LDR R2,[R1,#0x13C]		@offset 13C to get the dataout status GPIO1_DATAOUT
+	TST R2,#0x01E00000		@check if LEDs is all off
+	BEQ LED_0				@Turn LED_0 on
+	TST R2,#0x00400000		@Check if LED_1 is lit
+	BEQ LED_0_1				@Go to turn on LED_0_1
+	TST R2,#0x00800000		@check if LED_2 is lit
+	BEQ LED_0_1_2			@Go to turn on LED_0_1_2
+	TST R2,#0x01000000		@Check if LED0-1-2 is lit
+	BEQ LED_0_1_2_3			@Go to turn on LED3
+	TEQ R2,#0x01E00000		@Check if LED_0_1_2_3 is lit
+	BEQ LEDOFF				@Go to turn off all LEDs
+
+LED_0_1:
+	MOV R6,#0x00600000		@Value to Turn on LED1
+	STR R6,[R4]				@Write to Turn on LED1
+	B PASS_ON				@Go to PASS_ON
+
+LED_0_1_2:
+	MOV R6,#0x00E00000		@Value to Turn on LED2
+	STR R6,[R4]				@Write to Turn on LED2
+	B PASS_ON				@Go to PASS_ON
+
+LED_0_1_2_3:
+	MOV R6,#0x01E00000		@Value to Turn on LED3
+	STR R6,[R4]				@Write to Turn on LED3
+	B PASS_ON				@Go to PASS_ON
+
+LEDOFF:
+	MOV R5,#0x01E00000		@Load value to reset the GPIO1
+	STR R5,[R3]				@Write to CLEARDATAOUT for GPIO1
+	B PASS_ON				@Go to PASS_ON
+
+@ turn off NEWIRQA bit in INTC_CONTROL so can respond to new IRQ
+PASS_ON:
+LDR R0,=0x48200048		@Address of INTC_CONTROL register
+	MOV R1,#0x1				@Value to clear bit 0
+	STR R1,[R0]				@Write to INTC_CONTROL register
+	LDMFD SP!, {R0-R3,LR}		@restore register
+	SUBS PC,LR,#4			@Return from the IRQ	
+
+.data
+.align 2
+STACK1: .rept 1024
+		.word 0x0000
+		.endr
+STACK2: .rept 1024
+		.word 0x0000
+		.endr
+.END
+
