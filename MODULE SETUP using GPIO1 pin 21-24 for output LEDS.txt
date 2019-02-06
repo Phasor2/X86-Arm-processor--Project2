@@ -1,0 +1,63 @@
+@Phong Nguyen
+@ECE371
+@Project2
+@MODULE SETUP using GPIO1 pin 21-24 for output LEDS
+@ Turn on GPIO1 CLCK
+	MOV R0,#0x02				@value to turn on GPIO1_CLK 
+	LDR R1,=0x44E000AC			@Load the address for the CM_PER_GPIO1_CLKCTRL
+	STR R0,[R1]				@ Write value to the register
+
+@ GPIO1_ClEARDATAOUt for pin 21-24
+	LDR R0,=0x4804C000			@base address for GPIO1 register
+	MOV R1, #0x01E00000		@value to turn off 21-24 LEDS on GPIO1
+	STR R1,[R0,#0x190]			@Write to GPIO1_CLEARDATAOUT register
+
+@ GPIO1_OE for pin 21-24
+	ADD R4,R0,#0x0134			@R4 is GPIO1_OE register address
+	MOV R5,#0xFE1FFFFF			@ pin 21-24 for output enable (0 is enable)
+	LDR R6,[R4]				@Load current value from the GPIO1_OE
+	AND R6,R6,R5				@Modify current value with pin 21-24 
+	STR R6,[R4]				@Write back to GPIO_OE register address
+@===================================================================================
+@===================================================================================
+@LED part for BUTTON
+@turn on LED	
+TURN_ON:
+
+@TOGGLE LED and wait for interrupt from button
+LDR R1,=0x4804C000			@Base address of GPIO1
+	ADD R3,R1,#0x190			@R3 is address to CLEARDATAOUT of GPIO1
+	ADD R4,R1,#0x194			@R4 is address to SETDATAOUT of GPIO1
+
+LED_0:
+	MOV R6,#0x00200000			@Value to Turn on LED0
+	STR R6,[R4]				@Write to Turn on LED0
+	BL ONE_SEC				@Go to delay 1 sec
+LED_0_1:
+	MOV R6,#0x00600000			@Value to Turn on LED_0_1
+	STR R6,[R4]				@Write to Turn on LED_0_1
+	BL ONE_SEC				@Go to delay 1 sec
+
+LED_0_1_2:
+	MOV R6,#0x00E00000			@Value to Turn on LED_0_1_2
+	STR R6,[R4]				@Write to Turn on LED2
+	BL ONE_SEC				@Go to delay 1 sec
+
+LED_0_1_2_3:
+	MOV R6,#0x01E00000			@Value to Turn on LED_0_1_2_3
+	STR R6,[R4]				@Write to Turn on LED3
+	BL ONE_SEC				@Go to delay 1 sec
+
+LEDOFF:
+	MOV R5,#0x01E00000			@Load value to reset the GPIO1
+	STR R5,[R3]				@Write to CLEARDATAOUT for GPIO1
+	BL ONE_SEC				@Go to delay 1 sec
+	B LED_0				@go back to turn on LED_0
+@======================================================================
+ONE_SEC:
+MOV R2,#0x00400000			@delay 1 sec	
+LOOP2: 
+SUBS R2,#1				@Count down
+	BNE LOOP2				@jump back ONE_SEC
+MOV PC,R14				@after done 1 sec then go to current work
+
