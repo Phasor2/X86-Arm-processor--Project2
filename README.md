@@ -7,7 +7,7 @@ and Codes open "* .txt"
 # PART 1 LEDS SEQUENCE
 
 ## Part 1 Flowchart 
-![alt-text](https://github.com/Phasor2/Assembly-langguge-X86-Arm-processor-ECE371-Project2/blob/master/Project%202%20part%201%20ECE371.png)
+![alt-text](https://github.com/Phasor2/Assembly-langguge-X86-Arm-processor-ECE371--Project2/blob/master/Part%201%20ECE371.png)
 
 # Part 2 SETTING UP INTERRUPT
 ## Part 2 Flowchart 
