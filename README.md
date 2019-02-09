@@ -4,7 +4,7 @@ First, I have to recognize input and output of the project. Here is are simplify
 Clearly, I can see there are 2 outputs. It’s my goal to design the system calculates the output that I want. In order to obtain these outputs, I must need 2 sub routines. They are Conversion and Average. 
 Once, I realize the subroutine I need to design each sub routine in pseudocode so it can be designed in any language, not just assembly langue. 
 
-#PSEUDOCODE
+# PSEUDOCODE
 Conversion
 			if rough value adding into true value 0
 .			If rough value > 20 adding 1 to into rough value save in true value
@@ -22,11 +22,11 @@ Previous Sum add true value save into sum
 			Round by adding 1 
 			Else return to main program
 
-#FlowChart
+# FlowChart
 ![alt text](https://github.com/Phasor2/Assembly-langguge-X86-Arm-processor-ECE371--Project1/blob/master/ece%20371%20project%201-1.jpg)
 
 
-#TRUTH TABLE
+# TRUTH TABLE
 In order to design a perfect system working smoothly without glitch or mistake, I give a trials value and calculate them beforehand. I make a table of these trials value by the time I finish coding I can run them and compare the values from my table to the values output of the program. It’s a really nice technique I figure out when coming across the project problems. This is similar to truth table.
 Fahreinth Rough 	 	Expected Fahreinth True 	 
 Decimal	Hex	Decimal	Hex
@@ -70,7 +70,7 @@ SUM	1259	04EB
 Average	78.6875	
 
 
-#ALGORTIHM
+# ALGORTIHM
 Phong Nguyen
 Algorithm Project 1 ECE 371
 Mainline 
