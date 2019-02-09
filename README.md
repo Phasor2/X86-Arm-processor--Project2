@@ -5,7 +5,7 @@ Clearly, I can see there are 2 outputs. It’s my goal to design the system calc
 Once, I realize the subroutine I need to design each sub routine in pseudocode so it can be designed in any language, not just assembly langue. 
 
 # PSEUDOCODE
-'''
+```
 Conversion
 			if rough value adding into true value 0
 .			If rough value > 20 adding 1 to into rough value save in true value
@@ -22,14 +22,14 @@ Previous Sum add true value save into sum
 			Check if rounding 
 			Round by adding 1 
 			Else return to main program
-'''
+```
 # FlowChart
 ![alt text](https://github.com/Phasor2/Assembly-langguge-X86-Arm-processor-ECE371--Project1/blob/master/ece%20371%20project%201-1.jpg)
 
 
 # TRUTH TABLE
 In order to design a perfect system working smoothly without glitch or mistake, I give a trials value and calculate them beforehand. I make a table of these trials value by the time I finish coding I can run them and compare the values from my table to the values output of the program. It’s a really nice technique I figure out when coming across the project problems. This is similar to truth table.
-'''
+```
 Fahreinth Rough 	 	Expected Fahreinth True 	 
 Decimal	Hex	Decimal	Hex
 54	0036	57	0039
@@ -70,10 +70,10 @@ TRUTH TABLE FOR ROUNDING
 
 SUM	1259	04EB
 Average	78.6875	
-'''
+```
 
 # ALGORTIHM
-'''
+```
 Phong Nguyen
 Algorithm Project 1 ECE 371
 Mainline 
@@ -133,7 +133,7 @@ END:  			Restore the register by popping from the stack (R0-R9, R14)
 Rounded:
 R8 = R8+1 @ rounded R8 by adding one (round up)
 Jump to end
-'''
+```
 # Stack
 ![alt text](https://github.com/Phasor2/Assembly-langguge-X86-Arm-processor-ECE371--Project1/blob/master/My%20stack%20R13.png)
 
